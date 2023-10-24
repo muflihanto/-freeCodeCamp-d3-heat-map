@@ -7,7 +7,7 @@ const tw = (strings: TemplateStringsArray, ...values: string[]) =>
 export default function setupHeatMap(container: HTMLDivElement) {
   // Declare the chart dimensions and margins.
   const width = 1600;
-  const height = 600;
+  const height = 450;
   const margin = {
     top: 20,
     right: 20,
@@ -48,6 +48,23 @@ export default function setupHeatMap(container: HTMLDivElement) {
     .attr("width", width)
     .attr("height", height)
     .attr("class", "self-start");
+
+  // Calculate color scale domain
+  const colorLength = 11;
+  const minMaxTemp = d3.extent(data.monthlyVariance, (d) => d.variance) as [
+    number,
+    number,
+  ];
+  const step = (minMaxTemp[1] - minMaxTemp[0]) / colorLength;
+  const colorDomain = Array.from({ length: colorLength }).map(
+    (_, i) => data.baseTemperature + minMaxTemp[0] + (i + 1) * step,
+  );
+
+  // Declare color scale
+  const color = d3.scaleThreshold(
+    colorDomain,
+    (d3.schemeRdYlBu[colorLength] as string[]).reverse(),
+  );
 
   // Declare the x (horizontal position) scale.
   const x = d3
@@ -96,6 +113,25 @@ export default function setupHeatMap(container: HTMLDivElement) {
           return format(date);
         }),
     );
+
+  // Add map
+  svg
+    .append("g")
+    .classed("map", true)
+    .attr("transform", `translate(0.5,1)`)
+    .selectAll("rect")
+    .data(data.monthlyVariance)
+    .enter()
+    .append("rect")
+    .attr("class", "cell")
+    .attr("data-month", (d) => d.month)
+    .attr("data-year", (d) => d.year)
+    .attr("data-temp", (d) => data.baseTemperature + d.variance)
+    .attr("x", (d) => x(String(d.year)) ?? 0)
+    .attr("y", (d) => y(String(d.month - 1)) ?? 0)
+    .attr("width", x.bandwidth())
+    .attr("height", y.bandwidth())
+    .attr("fill", (d) => color(data.baseTemperature + d.variance));
 
   container.append(svg.node()!);
 }
