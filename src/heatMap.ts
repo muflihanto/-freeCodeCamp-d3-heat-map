@@ -1,28 +1,41 @@
 import * as d3 from "d3";
+import d3Tip from "d3-tip";
 import data from "./global-temperature.json";
 
 const tw = (strings: TemplateStringsArray, ...values: string[]) =>
   String.raw({ raw: strings }, ...values);
 
-export default function setupHeatMap(container: HTMLDivElement) {
+export default function setupHeatMap(app: HTMLDivElement) {
   // Declare the chart dimensions and margins.
   const width = 1600;
-  const height = 540;
+  const height = 560;
   const margin = {
     top: 20,
     right: 20,
-    bottom: 100,
+    bottom: 120,
     left: 90,
   };
 
   // Declare styles
   const styles = {
+    container:
+      "container mx-auto p-8 flex flex-col items-center mt-2 max-w-full",
+    scrollContainer: "w-full overflow-scroll max-w-full",
     heading: tw`flex w-full flex-col items-center`,
     h1: tw`text-2xl font-bold`,
     h3: tw`text-xl font-semibold`,
     xLabel: tw`fill-black text-sm [text-anchor:middle]`,
     yLabel: tw`-rotate-90 fill-black text-sm [text-anchor:middle]`,
+    cell: tw`cell hover:stroke-black`,
+    tooltip: tw`flex min-w-[50px] flex-col items-center rounded-md bg-black/80 px-3 py-2 font-semibold text-white`,
   };
+
+  const container = d3
+    .select(app)
+    .append("div")
+    .attr("id", "container")
+    .classed(styles.container, true)
+    .node()!;
 
   // Add title
   const heading = d3.create("heading").attr("class", styles.heading);
@@ -44,12 +57,37 @@ export default function setupHeatMap(container: HTMLDivElement) {
   // Append heading to container
   container.append(heading.node()!);
 
+  const scrollContainer = d3
+    .create("div")
+    .attr("id", "scrollContainer")
+    .classed(styles.scrollContainer, true);
+
+  const tip = d3Tip()
+    .attr("class", styles.tooltip)
+    .attr("id", "tooltip")
+    .html<(typeof data.monthlyVariance)[number]>((d) => {
+      return [
+        d3.utcFormat("%Y - %B")(new Date(d.year, d.month)),
+        d3.format(".1f")(data.baseTemperature + d.variance) + "&#8451;",
+        d3.format("+.1f")(d.variance) + "&#8451;",
+      ]
+        .map((el) => `<span>${el}</span>`)
+        .join("");
+    })
+    .direction("n")
+    .offset([-10, 0]);
+
   // Create the SVG container.
-  const svg = d3
-    .create("svg")
+  const svg = scrollContainer
+    .append("svg")
     .attr("width", width)
     .attr("height", height)
-    .attr("class", "self-start");
+    .attr("class", "self-start")
+    .call(
+      tip as unknown as (
+        selection: d3.Selection<SVGSVGElement, undefined, null, undefined>,
+      ) => void,
+    );
 
   // Calculate color scale domain
   const colorLength = 11;
@@ -84,6 +122,7 @@ export default function setupHeatMap(container: HTMLDivElement) {
   svg
     .append("g")
     .attr("transform", `translate(0,${height - margin.bottom})`)
+    .attr("id", "x-axis")
     .call(
       d3
         .axisBottom(x)
@@ -94,6 +133,7 @@ export default function setupHeatMap(container: HTMLDivElement) {
   svg
     .append("g")
     .attr("transform", `translate(${margin.left},0)`)
+    .attr("id", "y-axis")
     .call(
       d3
         .axisLeft(y)
@@ -113,15 +153,20 @@ export default function setupHeatMap(container: HTMLDivElement) {
     .data(data.monthlyVariance)
     .enter()
     .append("rect")
-    .attr("class", "cell")
-    .attr("data-month", (d) => d.month)
+    .classed(styles.cell, true)
+    .attr("data-month", (d) => d.month - 1)
     .attr("data-year", (d) => d.year)
     .attr("data-temp", (d) => data.baseTemperature + d.variance)
     .attr("x", (d) => x(String(d.year)) ?? 0)
     .attr("y", (d) => y(String(d.month - 1)) ?? 0)
     .attr("width", x.bandwidth())
     .attr("height", y.bandwidth())
-    .attr("fill", (d) => color(data.baseTemperature + d.variance));
+    .attr("fill", (d) => color(data.baseTemperature + d.variance))
+    .on("mouseover", function (_, d) {
+      tip.attr("data-year", d.year);
+      tip.show<(typeof data.monthlyVariance)[number]>(d, this);
+    })
+    .on("mouseout", tip.hide);
 
   // Add x-axis label
   svg
@@ -192,5 +237,5 @@ export default function setupHeatMap(container: HTMLDivElement) {
     .call(legendXAxis);
 
   // Append svg to container
-  container.append(svg.node()!);
+  container.append(scrollContainer.node()!);
 }
