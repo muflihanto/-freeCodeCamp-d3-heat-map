@@ -3,6 +3,9 @@ import { Primitive } from "d3";
 declare module "d3-tip" {
   type TooltipDirection = "n" | "s" | "e" | "w" | "nw" | "ne" | "sw" | "se";
   interface Tooltip {
+    (
+      selection?: d3.Selection<SVGSVGElement, undefined, null, undefined>,
+    ): Tooltip;
     hide(): Tooltip;
     show(): Tooltip;
     show<Datum>(data: Datum): Tooltip;

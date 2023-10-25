@@ -65,7 +65,7 @@ export default function setupHeatMap(app: HTMLDivElement) {
   const tip = d3Tip()
     .attr("class", styles.tooltip)
     .attr("id", "tooltip")
-    .html<(typeof data.monthlyVariance)[number]>((d) => {
+    .html((d: (typeof data.monthlyVariance)[number]) => {
       return [
         d3.utcFormat("%Y - %B")(new Date(d.year, d.month)),
         d3.format(".1f")(data.baseTemperature + d.variance) + "&#8451;",
@@ -83,11 +83,7 @@ export default function setupHeatMap(app: HTMLDivElement) {
     .attr("width", width)
     .attr("height", height)
     .attr("class", "self-start")
-    .call(
-      tip as unknown as (
-        selection: d3.Selection<SVGSVGElement, undefined, null, undefined>,
-      ) => void,
-    );
+    .call(tip);
 
   // Calculate color scale domain
   const colorLength = 11;
