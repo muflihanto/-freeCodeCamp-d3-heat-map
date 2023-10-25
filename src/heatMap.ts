@@ -7,12 +7,12 @@ const tw = (strings: TemplateStringsArray, ...values: string[]) =>
 export default function setupHeatMap(container: HTMLDivElement) {
   // Declare the chart dimensions and margins.
   const width = 1600;
-  const height = 450;
+  const height = 540;
   const margin = {
     top: 20,
     right: 20,
-    bottom: 30,
-    left: 60,
+    bottom: 100,
+    left: 90,
   };
 
   // Declare styles
@@ -20,6 +20,8 @@ export default function setupHeatMap(container: HTMLDivElement) {
     heading: tw`flex w-full flex-col items-center`,
     h1: tw`text-2xl font-bold`,
     h3: tw`text-xl font-semibold`,
+    xLabel: tw`fill-black text-sm [text-anchor:middle]`,
+    yLabel: tw`-rotate-90 fill-black text-sm [text-anchor:middle]`,
   };
 
   // Add title
@@ -51,13 +53,13 @@ export default function setupHeatMap(container: HTMLDivElement) {
 
   // Calculate color scale domain
   const colorLength = 11;
-  const minMaxTemp = d3.extent(data.monthlyVariance, (d) => d.variance) as [
-    number,
-    number,
-  ];
-  const step = (minMaxTemp[1] - minMaxTemp[0]) / colorLength;
+  const [minTemp, maxTemp] = d3.extent(
+    data.monthlyVariance,
+    (d) => d.variance + data.baseTemperature,
+  ) as [number, number];
+  const step = (maxTemp - minTemp) / colorLength;
   const colorDomain = Array.from({ length: colorLength }).map(
-    (_, i) => data.baseTemperature + minMaxTemp[0] + (i + 1) * step,
+    (_, i) => minTemp + (i + 1) * step,
   );
 
   // Declare color scale
@@ -85,17 +87,7 @@ export default function setupHeatMap(container: HTMLDivElement) {
     .call(
       d3
         .axisBottom(x)
-        .tickValues(
-          x.domain().filter((year) => {
-            return parseInt(year) % 10 === 0;
-          }),
-        )
-        .tickFormat((year) => {
-          const date = new Date(0);
-          date.setUTCFullYear(parseInt(year));
-          const format = d3.utcFormat("%Y");
-          return format(date);
-        }),
+        .tickValues(x.domain().filter((year) => parseInt(year) % 10 === 0)),
     );
 
   // Add the y-axis.
@@ -109,8 +101,7 @@ export default function setupHeatMap(container: HTMLDivElement) {
         .tickFormat((month) => {
           const date = new Date(0);
           date.setUTCMonth(parseInt(month));
-          const format = d3.utcFormat("%B");
-          return format(date);
+          return d3.utcFormat("%B")(date);
         }),
     );
 
@@ -118,7 +109,6 @@ export default function setupHeatMap(container: HTMLDivElement) {
   svg
     .append("g")
     .classed("map", true)
-    .attr("transform", `translate(0.5,1)`)
     .selectAll("rect")
     .data(data.monthlyVariance)
     .enter()
@@ -133,5 +123,74 @@ export default function setupHeatMap(container: HTMLDivElement) {
     .attr("height", y.bandwidth())
     .attr("fill", (d) => color(data.baseTemperature + d.variance));
 
+  // Add x-axis label
+  svg
+    .append("text")
+    .text("Years")
+    .classed(styles.xLabel, true)
+    .attr("x", (width - margin.left - margin.right) / 2 + margin.left)
+    .attr("y", height - margin.bottom + 40);
+
+  // Add y-axis label
+  svg
+    .append("text")
+    .text("Months")
+    .classed(styles.yLabel, true)
+    .attr("x", (-1 / 2) * (height - margin.bottom - margin.top) - margin.top)
+    .attr("y", 20);
+
+  // Declare legend dimensions
+  const legendHeight = 24;
+  const legendWidth = 400;
+
+  // Declare the legend horizontal position scale.
+  const legendX = d3.scaleLinear([minTemp, maxTemp], [0, legendWidth]);
+
+  // Add legend x-axis
+  const legendXAxis = d3
+    .axisBottom(legendX)
+    .tickSize(10)
+    .tickValues(color.domain())
+    .tickFormat(d3.format(".1f"));
+
+  // Add legend group
+  const legend = svg
+    .append("g")
+    .classed("legend", true)
+    .attr("id", "legend")
+    .attr(
+      "transform",
+      `translate(${margin.left},${
+        height - margin.bottom + 48 - (2 * legendHeight) / 11
+      })`,
+    );
+
+  // Add legend rects group
+  legend
+    .append("g")
+    .selectAll("rect")
+    .data(
+      color.range().map((r) => {
+        const [c0, c1] = color.invertExtent(r);
+        const [d0, d1] = legendX.domain();
+        return [c0 ?? d0, c1 ?? d1];
+      }),
+    )
+    .enter()
+    .append("rect")
+    .style("fill", (d) => color(d[0]))
+    .style("stroke", "black")
+    .attr("x", (d) => legendX(d[0]))
+    .attr("y", 0)
+    .attr("width", (d) => legendX(d[1]) - legendX(d[0]))
+    .attr("height", legendHeight);
+
+  // Call the legend axis
+  legend
+    .append("g")
+    .attr("transform", `translate(0,${legendHeight})`)
+    .call(legendXAxis);
+
+  // Append svg to container
   container.append(svg.node()!);
 }
