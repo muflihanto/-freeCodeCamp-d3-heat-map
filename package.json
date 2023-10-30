@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "pnpm build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "@types/d3": "^7.4.2",
     "@types/d3-tip": "^3.5.7",
+    "@types/gh-pages": "^5.0.0",
     "autoprefixer": "^10.4.16",
     "cssnano": "^6.0.1",
+    "gh-pages": "^6.0.0",
     "postcss": "^8.4.31",
     "prettier": "^3.0.3",
     "prettier-plugin-tailwindcss": "^0.5.6",
